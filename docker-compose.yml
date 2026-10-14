@@ -1,33 +1,38 @@
 version: '3.8'
 
 services:
-  # Servicio de Base de Datos (PostgreSQL)
   db:
     image: postgres:15
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=tienda_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=secret_password
+      POSTGRES_DB: ${POSTGRES_DB:-djangodocker}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret_password}
 
-  # Servicio de tu API Django
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    # Se usa Gunicorn en lugar de runserver (usando el modulo WSGI de Tienda)
+    command: gunicorn Tienda.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
-    ports:
-      - "8000:8000"
     depends_on:
       - db
     environment:
-      - DB_NAME=tienda_db
-      - DB_USER=postgres
-      - DB_PASSWORD=secret_password
-      - DB_HOST=db
-      - DB_PORT=5432
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_DB: ${POSTGRES_DB:-djangodocker}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret_password}
+    # NOTA: Se elimino 'ports: "8000:8000"'. Django queda aislado internamente.
 
-# Definición del volumen persistente
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"  # Nginx recibe todo el trafico publico
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web
+
 volumes:
   postgres_data:
