@@ -45,3 +45,26 @@ class CompraService:
         inv.save()
 
         return orden.total
+
+class CompraRapidaService:
+    def __init__(self, procesador_pago):
+        self.procesador_pago = procesador_pago
+        
+    def procesar(self, libro_id):
+        from .models import Libro, Inventario # Importación local para evitar errores
+        
+        libro = Libro.objects.get(id=libro_id)
+        inv = Inventario.objects.get(libro=libro)
+        
+        if inv.cantidad <= 0:
+            raise ValueError("No hay existencias.")
+            
+        # Asumiendo que CalculadorImpuestos está en el proyecto; si falla, lo cambiamos a total = float(libro.precio) * 1.19
+        total = float(libro.precio) * 1.19 
+        
+        if self.procesador_pago.pagar(total):
+            inv.cantidad -= 1
+            inv.save()
+            return total
+            
+        return None
